@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DotNet Azure Web UI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: #111827;
+      padding: 40px;
+      border-radius: 24px;
+      max-width: 850px;
+      box-shadow: 0 20px 70px rgba(0,0,0,.4);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .badge {
+      display: inline-block;
+      background: #38bdf8;
+      color: #020617;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: bold;
+    }
+    h1 {
+      color: #38bdf8;
+      font-size: 48px;
+    }
+    p {
+      color: #cbd5e1;
+      font-size: 18px;
+      line-height: 1.6;
+    }
+    .status {
+      color: #22c55e;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">Azure Deployment Successful</span>
+    <h1>DotNet Azure Web UI</h1>
+    <p class="status">Static website is live on Azure Storage.</p>
+    <p>
+      App Service deployment is currently blocked because App Service worker quotas are set to zero.
+      This page confirms the Azure web UI is visible while App Service quota is being fixed.
+    </p>
+    <p>
+      Project: DotNetWebUI<br>
+      Subscription: novacorp-sandbox-eus<br>
+      Region: eastus2
+    </p>
+  </div>
+</body>
+</html>

@@ -1,80 +1,69 @@
-# This pipeline runs automatically when code is pushed to the main branch.
+# This pipeline deploys the static website to Azure Storage.
+# It is used because Azure App Service Plan creation is currently blocked by quota.
+
 trigger:
 - main
 
-# This tells Azure DevOps to use a Microsoft-hosted Ubuntu build agent.
-# The agent is a temporary machine that builds, packages, and deploys the app.
 pool:
   vmImage: 'ubuntu-latest'
 
-# Variables make the pipeline easier to update without editing every task.
 variables:
-  # Build configuration for production-style deployment.
-  buildConfiguration: 'Release'
+  # Azure subscription ID for novacorp-sandbox-eus.
+  azureSubscriptionId: '684d28f9-99f5-4a5d-8379-94c88f135139'
 
-  # Azure App Service name.
-  # Replace this after you create the Web App in Azure.
-  # Example: app-dotnet-webui-dev-nolet7-001
-  appName: 'REPLACE_WITH_YOUR_AZURE_APP_SERVICE_NAME'
+  # Azure resource group that contains the storage account.
+  resourceGroupName: 'rg-dotnet-webui-sandbox-eastus2-001'
 
-  # Azure DevOps service connection name.
-  # Create this in Azure DevOps Project Settings > Service connections.
-  # Recommended name: sc-azure-dotnet-webui-dev
-  azureSubscription: 'REPLACE_WITH_YOUR_AZURE_SERVICE_CONNECTION_NAME'
+  # Azure Storage Account hosting the static website.
+  storageAccountName: 'stdotwebui23808'
 
-  # Path to the .NET web project that should be built and deployed.
-  projectPath: 'DotNetAzureWebUi.Web/DotNetAzureWebUi.Web.csproj'
+  # Folder in the repo containing files to publish.
+  staticSitePath: 'static-site'
 
-# Pipeline steps start here.
 steps:
+# Checkout the GitHub repository.
+- checkout: self
 
-# Install the .NET SDK on the Microsoft-hosted build agent.
-# This project targets net10.0, so the pipeline uses 10.x.
-# If you later change the project to net8.0, change this to 8.x.
-- task: UseDotNet@2
-  displayName: 'Install .NET SDK'
+# Deploy static website files to the Azure Storage $web container.
+# The service connection must be created in Azure DevOps.
+- task: AzureCLI@2
+  displayName: 'Deploy static website to Azure Storage'
   inputs:
-    packageType: 'sdk'
-    version: '10.x'
+    azureSubscription: 'sc-azure-dotnet-storage-sandbox'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      set -e
 
-# Print SDK information for troubleshooting pipeline failures.
-- script: |
-    dotnet --info
-  displayName: 'Show .NET SDK information'
+      echo "Setting Azure subscription..."
+      az account set --subscription "$(azureSubscriptionId)"
 
-# Restore NuGet dependencies for the project.
-- task: DotNetCoreCLI@2
-  displayName: 'Restore dependencies'
-  inputs:
-    command: 'restore'
-    projects: '$(projectPath)'
+      echo "Getting storage account key..."
+      ACCOUNT_KEY=$(az storage account keys list \
+        --resource-group "$(resourceGroupName)" \
+        --account-name "$(storageAccountName)" \
+        --query "[0].value" \
+        --output tsv)
 
-# Build the application in Release mode.
-# --no-restore is used because the restore step already ran.
-- task: DotNetCoreCLI@2
-  displayName: 'Build application'
-  inputs:
-    command: 'build'
-    projects: '$(projectPath)'
-    arguments: '--configuration $(buildConfiguration) --no-restore'
+      echo "Enabling static website hosting..."
+      az storage blob service-properties update \
+        --account-name "$(storageAccountName)" \
+        --account-key "$ACCOUNT_KEY" \
+        --static-website true \
+        --index-document index.html \
+        --404-document 404.html
 
-# Publish the application into a deployable output folder.
-# zipAfterPublish creates a .zip package for Azure App Service deployment.
-- task: DotNetCoreCLI@2
-  displayName: 'Publish application'
-  inputs:
-    command: 'publish'
-    publishWebProjects: false
-    projects: '$(projectPath)'
-    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/publish'
-    zipAfterPublish: true
+      echo "Uploading static website files..."
+      az storage blob upload-batch \
+        --account-name "$(storageAccountName)" \
+        --account-key "$ACCOUNT_KEY" \
+        --destination '$web' \
+        --source "$(staticSitePath)" \
+        --overwrite true
 
-# Deploy the published .zip package to Azure App Service.
-# appType webAppLinux must match the Linux App Service created in Azure.
-- task: AzureWebApp@1
-  displayName: 'Deploy to Azure App Service'
-  inputs:
-    azureSubscription: '$(azureSubscription)'
-    appType: 'webAppLinux'
-    appName: '$(appName)'
-    package: '$(Build.ArtifactStagingDirectory)/publish/*.zip'
+      echo "Deployment complete. Website URL:"
+      az storage account show \
+        --resource-group "$(resourceGroupName)" \
+        --name "$(storageAccountName)" \
+        --query "primaryEndpoints.web" \
+        --output tsv
