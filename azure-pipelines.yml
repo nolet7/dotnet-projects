@@ -1,0 +1,88 @@
+# This pipeline runs automatically when code is pushed to the main branch.
+trigger:
+- main
+
+# This tells Azure DevOps to use a Microsoft-hosted Ubuntu build agent.
+# The agent is the temporary machine that builds and deploys your app.
+pool:
+  vmImage: 'ubuntu-latest'
+
+# Variables make the pipeline easier to update and reuse.
+variables:
+  # This tells .NET to build the app in Release mode.
+  # Release mode is optimized for deployment.
+  buildConfiguration: 'Release'
+
+  # This is the name of your Azure App Service.
+  # Replace this value with the real App Service name created in Azure.
+  appName: 'REPLACE_WITH_YOUR_AZURE_APP_SERVICE_NAME'
+
+  # This is the Azure DevOps service connection name.
+  # It allows Azure DevOps to connect to your Azure subscription securely.
+  azureSubscription: 'REPLACE_WITH_YOUR_AZURE_SERVICE_CONNECTION_NAME'
+
+  # This points to the .NET project file that should be built and published.
+  projectPath: 'DotNetAzureWebUi.Web/DotNetAzureWebUi.Web.csproj'
+
+# Pipeline steps start here.
+# Azure DevOps runs these steps from top to bottom.
+steps:
+
+# This installs the .NET SDK on the build agent.
+# Use 10.x if your project targets net10.0.
+# Use 9.x if your project targets net9.0.
+# Use 8.x if your project targets net8.0.
+- task: UseDotNet@2
+  displayName: 'Install .NET SDK'
+  inputs:
+    packageType: 'sdk'
+    version: '10.x'
+
+# This prints .NET information in the pipeline logs.
+# It helps you confirm which SDK version the build agent is using.
+- script: |
+    dotnet --info
+  displayName: 'Show .NET SDK information'
+
+# This restores NuGet packages required by the application.
+# NuGet packages are external libraries used by your .NET project.
+- task: DotNetCoreCLI@2
+  displayName: 'Restore dependencies'
+  inputs:
+    command: 'restore'
+    projects: '$(projectPath)'
+
+# This builds the .NET application.
+# --configuration Release tells .NET to build a production-ready version.
+# --no-restore avoids restoring packages again because restore already happened above.
+- task: DotNetCoreCLI@2
+  displayName: 'Build application'
+  inputs:
+    command: 'build'
+    projects: '$(projectPath)'
+    arguments: '--configuration $(buildConfiguration) --no-restore'
+
+# This publishes the application into a deployable folder.
+# The output is stored in Azure DevOps artifact staging directory.
+# zipAfterPublish creates a .zip package for Azure App Service deployment.
+- task: DotNetCoreCLI@2
+  displayName: 'Publish application'
+  inputs:
+    command: 'publish'
+    publishWebProjects: false
+    projects: '$(projectPath)'
+    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/publish'
+    zipAfterPublish: true
+
+# This deploys the published .zip package to Azure App Service.
+# azureSubscription uses the secure service connection from Azure DevOps.
+# appType webAppLinux means the target App Service is running on Linux.
+# appName is the Azure App Service name.
+# package points to the .zip file created in the publish step.
+- task: AzureWebApp@1
+  displayName: 'Deploy to Azure App Service'
+  inputs:
+    azureSubscription: '$(azureSubscription)'
+    appType: 'webAppLinux'
+    appName: '$(appName)'
+    package: '$(Build.ArtifactStagingDirectory)/publish/*.zip'

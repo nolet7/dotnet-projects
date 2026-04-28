@@ -1,0 +1,50 @@
+@page
+@model IndexModel
+
+@{
+    ViewData["Title"] = Model.AppName;
+}
+
+<section class="hero">
+    <div class="hero-content">
+        <span class="eyebrow">First .NET Cloud Project</span>
+        <h1>@Model.AppName</h1>
+        <p>
+            A simple ASP.NET Core web application that runs locally, works with Azure DevOps,
+            and can be deployed to Azure App Service.
+        </p>
+
+        <div class="hero-actions">
+            <a class="button primary" href="/api/health">Check App Health</a>
+            <a class="button secondary" href="https://learn.microsoft.com/azure/devops/pipelines/" target="_blank">Azure Pipelines</a>
+        </div>
+    </div>
+
+    <div class="status-card">
+        <p class="status-label">Current Environment</p>
+        <h2>@Model.EnvironmentName</h2>
+        <p class="status-text">Ready for local development and Azure deployment.</p>
+    </div>
+</section>
+
+<section class="grid">
+    @foreach (var feature in Model.Features)
+    {
+        <article class="feature-card">
+            <span>@feature.Badge</span>
+            <h3>@feature.Title</h3>
+            <p>@feature.Description</p>
+        </article>
+    }
+</section>
+
+<section class="next-steps">
+    <h2>What this project teaches you</h2>
+    <ul>
+        <li>Create a .NET web application from the command line.</li>
+        <li>Customize Razor Pages for a real web UI.</li>
+        <li>Run and test the app locally.</li>
+        <li>Push code to Azure DevOps Repos.</li>
+        <li>Deploy the app to Azure App Service using Azure Pipelines.</li>
+    </ul>
+</section>
