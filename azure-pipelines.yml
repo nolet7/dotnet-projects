@@ -3,58 +3,54 @@ trigger:
 - main
 
 # This tells Azure DevOps to use a Microsoft-hosted Ubuntu build agent.
-# The agent is the temporary machine that builds and deploys your app.
+# The agent is a temporary machine that builds, packages, and deploys the app.
 pool:
   vmImage: 'ubuntu-latest'
 
-# Variables make the pipeline easier to update and reuse.
+# Variables make the pipeline easier to update without editing every task.
 variables:
-  # This tells .NET to build the app in Release mode.
-  # Release mode is optimized for deployment.
+  # Build configuration for production-style deployment.
   buildConfiguration: 'Release'
 
-  # This is the name of your Azure App Service.
-  # Replace this value with the real App Service name created in Azure.
+  # Azure App Service name.
+  # Replace this after you create the Web App in Azure.
+  # Example: app-dotnet-webui-dev-nolet7-001
   appName: 'REPLACE_WITH_YOUR_AZURE_APP_SERVICE_NAME'
 
-  # This is the Azure DevOps service connection name.
-  # It allows Azure DevOps to connect to your Azure subscription securely.
+  # Azure DevOps service connection name.
+  # Create this in Azure DevOps Project Settings > Service connections.
+  # Recommended name: sc-azure-dotnet-webui-dev
   azureSubscription: 'REPLACE_WITH_YOUR_AZURE_SERVICE_CONNECTION_NAME'
 
-  # This points to the .NET project file that should be built and published.
+  # Path to the .NET web project that should be built and deployed.
   projectPath: 'DotNetAzureWebUi.Web/DotNetAzureWebUi.Web.csproj'
 
 # Pipeline steps start here.
-# Azure DevOps runs these steps from top to bottom.
 steps:
 
-# This installs the .NET SDK on the build agent.
-# Use 10.x if your project targets net10.0.
-# Use 9.x if your project targets net9.0.
-# Use 8.x if your project targets net8.0.
+# Install the .NET SDK on the Microsoft-hosted build agent.
+# This project targets net10.0, so the pipeline uses 10.x.
+# If you later change the project to net8.0, change this to 8.x.
 - task: UseDotNet@2
   displayName: 'Install .NET SDK'
   inputs:
     packageType: 'sdk'
     version: '10.x'
 
-# This prints .NET information in the pipeline logs.
-# It helps you confirm which SDK version the build agent is using.
+# Print SDK information for troubleshooting pipeline failures.
 - script: |
     dotnet --info
   displayName: 'Show .NET SDK information'
 
-# This restores NuGet packages required by the application.
-# NuGet packages are external libraries used by your .NET project.
+# Restore NuGet dependencies for the project.
 - task: DotNetCoreCLI@2
   displayName: 'Restore dependencies'
   inputs:
     command: 'restore'
     projects: '$(projectPath)'
 
-# This builds the .NET application.
-# --configuration Release tells .NET to build a production-ready version.
-# --no-restore avoids restoring packages again because restore already happened above.
+# Build the application in Release mode.
+# --no-restore is used because the restore step already ran.
 - task: DotNetCoreCLI@2
   displayName: 'Build application'
   inputs:
@@ -62,8 +58,7 @@ steps:
     projects: '$(projectPath)'
     arguments: '--configuration $(buildConfiguration) --no-restore'
 
-# This publishes the application into a deployable folder.
-# The output is stored in Azure DevOps artifact staging directory.
+# Publish the application into a deployable output folder.
 # zipAfterPublish creates a .zip package for Azure App Service deployment.
 - task: DotNetCoreCLI@2
   displayName: 'Publish application'
@@ -74,11 +69,8 @@ steps:
     arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/publish'
     zipAfterPublish: true
 
-# This deploys the published .zip package to Azure App Service.
-# azureSubscription uses the secure service connection from Azure DevOps.
-# appType webAppLinux means the target App Service is running on Linux.
-# appName is the Azure App Service name.
-# package points to the .zip file created in the publish step.
+# Deploy the published .zip package to Azure App Service.
+# appType webAppLinux must match the Linux App Service created in Azure.
 - task: AzureWebApp@1
   displayName: 'Deploy to Azure App Service'
   inputs:
